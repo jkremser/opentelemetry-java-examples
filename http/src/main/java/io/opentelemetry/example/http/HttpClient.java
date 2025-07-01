@@ -22,6 +22,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.util.Optional;
 
 public final class HttpClient {
 
@@ -32,9 +33,8 @@ public final class HttpClient {
   private static final Tracer tracer =
       openTelemetry.getTracer("io.opentelemetry.example.http.HttpClient");
 
-  private void makeRequest() throws IOException, URISyntaxException {
-    int port = 8080;
-    URL url = new URL("http://127.0.0.1:" + port);
+  private void makeRequest(String server) throws IOException, URISyntaxException {
+    URL url = new URL("http://" + server);
     HttpURLConnection con = (HttpURLConnection) url.openConnection();
 
     int status = 0;
@@ -100,7 +100,16 @@ public final class HttpClient {
    *
    * @param args It is not required.
    */
-  public static void main(String[] args) {
+  public static void main(String[] args) throws IOException {
+    String server = Optional.ofNullable(System.getenv("SERVER")).orElseThrow(() -> new IOException("SERVER is not set in the environment"));
+    String sleepMs = Optional.ofNullable(System.getenv("SLEEP_MS")).orElseThrow(() -> new IOException("SLEEP_MS is not set in the environment"));
+    int sleepMsInt;
+    try {
+      sleepMsInt = Integer.parseInt(myString);
+    } catch (NumberFormatException e) {
+      System.out.println("Unable to parse SLEEP_MS, defaulting to 5000ms");
+      sleepMsInt = 5000;
+    }
     HttpClient httpClient = new HttpClient();
 
     // Perform request every 5s
@@ -109,8 +118,8 @@ public final class HttpClient {
             () -> {
               while (true) {
                 try {
-                  httpClient.makeRequest();
-                  Thread.sleep(5000);
+                  httpClient.makeRequest(server);
+                  Thread.sleep(sleepMsInt);
                 } catch (Exception e) {
                   System.out.println(e.getMessage());
                 }

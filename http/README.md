@@ -28,3 +28,13 @@ java -cp ./build/libs/opentelemetry-examples-http-0.1.0-SNAPSHOT-all.jar io.open
 ```shell script
 java -cp ./build/libs/opentelemetry-examples-http-0.1.0-SNAPSHOT-all.jar io.opentelemetry.example.http.HttpClient
 ```
+
+## 4 - Check the HTTP headers
+```bash
+sudo tcpdump -vv  -l -n -s 5655 -i lo0 tcp port 8080
+..
+097769688 ecr 501694531], length 172: HTTP, length: 172
+	GET / HTTP/1.1
+	traceparent: 00-5dae07aef8e2e0312e726231879efa3b-b4bc78d1b2de31e9-01
+..
+```
