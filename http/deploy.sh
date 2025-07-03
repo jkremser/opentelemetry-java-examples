@@ -2,6 +2,18 @@
 
 # deploy Kedify
 
+# cat <<VALUES | helm upgrade -i keda-otel-scaler -nkeda oci://ghcr.io/kedify/charts/otel-add-on --version=v0.0.11 -f -
+# deployScaler: false
+# otelOperator:
+#   enabled: true
+# otelOperatorCrs:
+# - name: collector
+#   enabled: true
+
+# VALUES
+helm repo add jaeger-all-in-one https://raw.githubusercontent.com/hansehe/jaeger-all-in-one/master/helm/charts
+helm repo update jaeger-all-in-one
+helm upgrade -i jaeger-all-in-one jaeger-all-in-one/jaeger-all-in-one --set enableHttpOpenTelemetryCollector=true
 
 # server
 kubectl create deploy otel-tracing-server --image=docker.io/jkremser/otel-tracing-server --port=8080
@@ -10,7 +22,7 @@ kubectl get svc otel-tracing-server-fallback -oyaml | yq 'del(.spec.clusterIPs, 
 
 # client
 kubectl create deploy otel-tracing-client --image=docker.io/jkremser/otel-tracing-client
-kubectl set env deploy otel-tracing-client SERVER="otel-tracing-server.default.svc:8080"
+kubectl set env deploy otel-tracing-client SERVER="otel-tracing-server-fallback.default.svc:8080" SLEEP_MS="1500" OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="jaeger-all-in-one:4317"
 
 # ScaledObject
 cat <<SO | kubectl apply -f -

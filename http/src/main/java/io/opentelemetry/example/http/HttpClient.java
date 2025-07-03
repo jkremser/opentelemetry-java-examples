@@ -28,7 +28,7 @@ public final class HttpClient {
 
   // it's important to initialize the OpenTelemetry SDK as early in your applications lifecycle as
   // possible.
-  private static final OpenTelemetry openTelemetry = ExampleConfiguration.initOpenTelemetry();
+  private static final OpenTelemetry openTelemetry = ExampleConfiguration.initOpenTelemetry(false);
 
   private static final Tracer tracer =
       openTelemetry.getTracer("io.opentelemetry.example.http.HttpClient");
@@ -105,11 +105,12 @@ public final class HttpClient {
     String sleepMs = Optional.ofNullable(System.getenv("SLEEP_MS")).orElseThrow(() -> new IOException("SLEEP_MS is not set in the environment"));
     int sleepMsInt;
     try {
-      sleepMsInt = Integer.parseInt(myString);
+      sleepMsInt = Integer.parseInt(sleepMs);
     } catch (NumberFormatException e) {
       System.out.println("Unable to parse SLEEP_MS, defaulting to 5000ms");
       sleepMsInt = 5000;
     }
+    final int sleepMsIntFinal = sleepMsInt;
     HttpClient httpClient = new HttpClient();
 
     // Perform request every 5s
@@ -119,7 +120,7 @@ public final class HttpClient {
               while (true) {
                 try {
                   httpClient.makeRequest(server);
-                  Thread.sleep(sleepMsInt);
+                  Thread.sleep(sleepMsIntFinal);
                 } catch (Exception e) {
                   System.out.println(e.getMessage());
                 }
