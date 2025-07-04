@@ -8,6 +8,7 @@ package io.opentelemetry.example.otlp;
 import static io.opentelemetry.semconv.ServiceAttributes.SERVICE_NAME;
 
 import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.exporter.otlp.metrics.OtlpGrpcMetricExporter;
 import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter;
 import io.opentelemetry.sdk.OpenTelemetrySdk;

@@ -12,10 +12,12 @@ import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter;
 import io.opentelemetry.exporter.logging.LoggingSpanExporter;
 import io.opentelemetry.extension.trace.propagation.B3Propagator;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
+import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
+import io.opentelemetry.semconv.ServiceAttributes;
 
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -25,6 +27,8 @@ import java.util.concurrent.TimeUnit;
  * the OpenTelemetry APIs.
  */
 class ExampleConfiguration {
+  public static final int VERSION = 2;
+  public static final String SERVICE_NAME = "http-call";
 
   /**
    * Initializes the OpenTelemetry SDK with a logging span exporter and the W3C Trace Context
@@ -32,10 +36,11 @@ class ExampleConfiguration {
    *
    * @return A ready-to-use {@link OpenTelemetry} instance.
    */
-  static OpenTelemetry initOpenTelemetry(boolean report) {
+  static OpenTelemetry initOpenTelemetry(boolean report, String microservice) {
     Optional<String> otlpEndpoint = Optional.ofNullable(System.getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"));
     SpanProcessor spanProcessor;
     if (report && otlpEndpoint.isPresent()) {
+      System.out.println("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=" + otlpEndpoint.get());
       spanProcessor = BatchSpanProcessor.builder(
                       OtlpGrpcSpanExporter.builder()
                               .setTimeout(2, TimeUnit.SECONDS)
@@ -46,10 +51,13 @@ class ExampleConfiguration {
     } else {
       spanProcessor = SimpleSpanProcessor.create(new LoggingSpanExporter());
     }
-
+    Resource resource = Resource.getDefault().toBuilder()
+            .put(ServiceAttributes.SERVICE_NAME, SERVICE_NAME)
+            .build();
     SdkTracerProvider sdkTracerProvider =
         SdkTracerProvider.builder()
             .addSpanProcessor(spanProcessor)
+                .setResource(resource)
             .build();
     OpenTelemetrySdk sdk =
         OpenTelemetrySdk.builder()

@@ -10,11 +10,14 @@ import static io.opentelemetry.api.common.AttributeKey.stringKey;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.baggage.Baggage;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.incubator.trace.ExtendedSpanBuilder;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -25,7 +28,7 @@ import java.util.stream.Collectors;
 public final class HttpServer {
   // It's important to initialize your OpenTelemetry SDK as early in your application's lifecycle as
   // possible.
-  private static final OpenTelemetry openTelemetry = ExampleConfiguration.initOpenTelemetry(true);
+  private static final OpenTelemetry openTelemetry = ExampleConfiguration.initOpenTelemetry(true, "server");
   private static final Tracer tracer =
       openTelemetry.getTracer("io.opentelemetry.example.http.HttpServer");
 
@@ -37,7 +40,7 @@ public final class HttpServer {
   }
 
   private HttpServer(int port) throws IOException {
-    server = com.sun.net.httpserver.HttpServer.create(new InetSocketAddress(port), 0);
+    server = com.sun.net.httpserver.HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
     // Test urls
     server.createContext("/", new HelloHandler());
     server.start();
@@ -57,9 +60,10 @@ public final class HttpServer {
           .startAndRun(
               () -> {
                 // Set the Semantic Convention
-                Span span = Span.current();
-                span.setAttribute("component", "http");
-                span.setAttribute("http.method", "GET");
+                Span parentSpan = Span.current();
+                parentSpan.updateName("handling-request");
+                parentSpan.setAttribute("component", "http-call");
+                parentSpan.setAttribute("http.method", "GET");
                 /*
                  One of the following is required:
                  - http.scheme, http.host, http.target
@@ -67,29 +71,50 @@ public final class HttpServer {
                  - http.scheme, net.host.name, net.host.port, http.target
                  - http.url
                 */
-                span.setAttribute("http.scheme", "http");
-                span.setAttribute("http.host", "localhost:" + HttpServer.port);
-                span.setAttribute("http.target", "/");
+                parentSpan.setAttribute("http.scheme", "http");
+                parentSpan.setAttribute("http.host", "localhost:" + HttpServer.port);
+                parentSpan.setAttribute("http.target", "/");
                 // Process the request
-                answer(exchange, span);
+                answer(exchange, parentSpan);
               });
     }
 
-    private void answer(HttpExchange exchange, Span span) throws IOException {
+    private String calculateSomething() {
+      Span.current().setAttribute("type", "calculation");
+      try {
+        // dummy
+        Thread.sleep(800);
+      } catch (Exception e) {
+        System.out.println(e.getMessage());
+      }
+      return "24";
+    }
+
+    private void answer(HttpExchange exchange, Span parentSpan) throws IOException {
       // Generate an Event
-      span.addEvent("Start Processing");
+      parentSpan.addEvent("Start Processing");
 
       // Process the request
-      String response = "Hello World!";
+      String response = "Hello KEDA!";
       exchange.sendResponseHeaders(200, response.length());
       OutputStream os = exchange.getResponseBody();
       os.write(response.getBytes(Charset.defaultCharset()));
       os.close();
       System.out.println("Served Client: " + exchange.getRemoteAddress());
 
+      // Simulate some load
+      Span childSpan = tracer.spanBuilder("inner server span")
+              .setParent(Context.current().with(parentSpan))
+              .startSpan();
+      childSpan.addEvent("Started calculation");
+      String result = calculateSomething();
+      Attributes eventAttributesInner = Attributes.of(stringKey("answer"), result);
+      childSpan.addEvent("Finished calculation", eventAttributesInner);
+      childSpan.end();
+
       // Generate an Event with an attribute
       Attributes eventAttributes = Attributes.of(stringKey("answer"), response);
-      span.addEvent("Finish Processing", eventAttributes);
+      parentSpan.addEvent("Finish Processing", eventAttributes);
     }
   }
 
@@ -104,6 +129,7 @@ public final class HttpServer {
    * @throws Exception Something might go wrong.
    */
   public static void main(String[] args) throws Exception {
+    System.out.println("version=" + ExampleConfiguration.VERSION);
     final HttpServer s = new HttpServer();
     // Gracefully close the server
     Runtime.getRuntime().addShutdownHook(new Thread(s::stop));

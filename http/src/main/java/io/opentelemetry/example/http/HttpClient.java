@@ -6,11 +6,15 @@
 package io.opentelemetry.example.http;
 
 import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.baggage.Baggage;
+import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.incubator.propagation.ExtendedContextPropagators;
+import io.opentelemetry.api.incubator.trace.ExtendedSpanBuilder;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.semconv.HttpAttributes;
 import io.opentelemetry.semconv.UrlAttributes;
@@ -24,11 +28,13 @@ import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.Optional;
 
+import static io.opentelemetry.api.common.AttributeKey.stringKey;
+
 public final class HttpClient {
 
   // it's important to initialize the OpenTelemetry SDK as early in your applications lifecycle as
   // possible.
-  private static final OpenTelemetry openTelemetry = ExampleConfiguration.initOpenTelemetry(false);
+  private static final OpenTelemetry openTelemetry = ExampleConfiguration.initOpenTelemetry(true, "client");
 
   private static final Tracer tracer =
       openTelemetry.getTracer("io.opentelemetry.example.http.HttpClient");
@@ -42,10 +48,10 @@ public final class HttpClient {
 
     // Name convention for the Span is not yet defined.
     // See: https://github.com/open-telemetry/opentelemetry-specification/issues/270
-    Span span = tracer.spanBuilder("/").setSpanKind(SpanKind.CLIENT).startSpan();
-    try (Scope scope = span.makeCurrent()) {
-      span.setAttribute(HttpAttributes.HTTP_REQUEST_METHOD, "GET");
-      span.setAttribute("component", "http");
+    Span parentSpan = tracer.spanBuilder("/").setSpanKind(SpanKind.CLIENT).startSpan();
+    try (Scope scope = parentSpan.makeCurrent()) {
+      parentSpan.setAttribute(HttpAttributes.HTTP_REQUEST_METHOD, "GET");
+      parentSpan.setAttribute("component", "http-call");
       /*
        Only one of the following is required
          - http.url
@@ -65,7 +71,15 @@ public final class HttpClient {
                   uri.getFragment())
               .toURL();
 
-      span.setAttribute(UrlAttributes.URL_FULL, url.toString());
+      parentSpan.setAttribute(UrlAttributes.URL_FULL, url.toString());
+      Span childSpan = tracer.spanBuilder("inner client span")
+              .setParent(Context.current().with(parentSpan))
+              .startSpan();
+      childSpan.addEvent("Started calculation");
+      String result = calculateSomething();
+      Attributes eventAttributes = Attributes.of(stringKey("answer"), result);
+      childSpan.addEvent("Finished calculation", eventAttributes);
+      childSpan.end();
 
       // Inject the request with the current Context/Span.
       ExtendedContextPropagators.getTextMapPropagationContext(openTelemetry.getPropagators())
@@ -74,6 +88,7 @@ public final class HttpClient {
       try {
         // Process the request
         con.setRequestMethod("GET");
+        con.setRequestProperty ("Host", "otel-tracing-server");
         status = con.getResponseCode();
         BufferedReader in =
             new BufferedReader(
@@ -84,15 +99,26 @@ public final class HttpClient {
         }
         in.close();
       } catch (Exception e) {
-        span.setStatus(StatusCode.ERROR, "HTTP Code: " + status);
+        parentSpan.setStatus(StatusCode.ERROR, "HTTP Code: " + status);
       }
     } finally {
-      span.end();
+      parentSpan.end();
     }
 
     // Output the result of the request
     System.out.println("Response Code: " + status);
     System.out.println("Response Msg: " + content);
+  }
+
+  private String calculateSomething() {
+    Span.current().setAttribute("type", "calculation");
+    try {
+      // dummy
+      Thread.sleep(500);
+    } catch (Exception e) {
+      System.out.println(e.getMessage());
+    }
+    return "42";
   }
 
   /**
@@ -101,8 +127,11 @@ public final class HttpClient {
    * @param args It is not required.
    */
   public static void main(String[] args) throws IOException {
+    System.out.println("version=" + ExampleConfiguration.VERSION);
     String server = Optional.ofNullable(System.getenv("SERVER")).orElseThrow(() -> new IOException("SERVER is not set in the environment"));
     String sleepMs = Optional.ofNullable(System.getenv("SLEEP_MS")).orElseThrow(() -> new IOException("SLEEP_MS is not set in the environment"));
+    System.out.println("SERVER=" + server);
+    System.out.println("SLEEP_MS=" + sleepMs);
     int sleepMsInt;
     try {
       sleepMsInt = Integer.parseInt(sleepMs);
@@ -111,6 +140,9 @@ public final class HttpClient {
       sleepMsInt = 5000;
     }
     final int sleepMsIntFinal = sleepMsInt;
+
+    // required in order to be able to set the Host HTTP header
+    System.setProperty("sun.net.http.allowRestrictedHeaders", "true");
     HttpClient httpClient = new HttpClient();
 
     // Perform request every 5s
