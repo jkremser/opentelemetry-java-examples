@@ -75,6 +75,7 @@ public final class HttpClient {
       Span childSpan = tracer.spanBuilder("inner client span")
               .setParent(Context.current().with(parentSpan))
               .startSpan();
+      childSpan.setAttribute("type", "calculation");
       childSpan.addEvent("Started calculation");
       String result = calculateSomething();
       Attributes eventAttributes = Attributes.of(stringKey("answer"), result);
@@ -111,7 +112,6 @@ public final class HttpClient {
   }
 
   private String calculateSomething() {
-    Span.current().setAttribute("type", "calculation");
     try {
       // dummy
       Thread.sleep(500);

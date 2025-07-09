@@ -40,7 +40,7 @@ public final class HttpServer {
   }
 
   private HttpServer(int port) throws IOException {
-    server = com.sun.net.httpserver.HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
+    server = com.sun.net.httpserver.HttpServer.create(new InetSocketAddress(port), 0);
     // Test urls
     server.createContext("/", new HelloHandler());
     server.start();
