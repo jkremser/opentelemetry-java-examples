@@ -1,20 +1,20 @@
 version: '3.8'
 services:
-  app:
-    image: otel-native-graalvm
-    environment:
-      OTEL_SERVICE_NAME: "graal-native-example-app"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://collector:4318"
-    ports:
-      - "8080:8080"
-    depends_on:
-      - collector
+  # app:
+  #   image: otel-native-graalvm
+  #   environment:
+  #     OTEL_SERVICE_NAME: "graal-native-example-app"
+  #     OTEL_EXPORTER_OTLP_ENDPOINT: "http://collector:4318"
+  #   ports:
+  #     - "8080:8080"
+  #   depends_on:
+  #     - collector
   collector:
     image: otel/opentelemetry-collector-contrib:0.128.0@sha256:1ab0baba0ee3695d823c46653d8a6e8894896e668ce8bd7ebe002e948d827bc7
     volumes:
       - ./collector-spring-native-config.yaml:/collector-spring-native-config.yaml
     command: ["--config=/collector-spring-native-config.yaml"]
     expose:
-      - "4317"
+      - "4318"
     ports:
-      - "4317:4317"
+      - "4318:4318"

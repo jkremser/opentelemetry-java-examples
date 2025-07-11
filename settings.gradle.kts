@@ -40,7 +40,7 @@ include(
     ":opentelemetry-examples-sdk-usage",
     ":opentelemetry-examples-telemetry-testing",
     ":opentelemetry-examples-zipkin",
-    ":opentelemetry-examples-spring-native",
+    ":opentelemetry-examples-spring",
     ":opentelemetry-examples-kotlin-extension",
     ":opentelemetry-examples-grpc",
     ":opentelemetry-examples-resource-detection-gcp",

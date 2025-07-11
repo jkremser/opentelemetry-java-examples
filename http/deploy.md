@@ -11,15 +11,11 @@ helm upgrade -i jaeger-all-in-one jaeger-all-in-one/jaeger-all-in-one --set enab
 cat <<VALUES | helm upgrade -i kedify-agent kedifykeda/kedify-agent --version=v0.2.13 -nkeda --create-namespace -f -
 agent:
   kedifyServer: kedify-proxy.api.dev.kedify.io:443
-  orgId: **
-  apiKey: kfy_**
+  orgId: ${KEDIFY_ORG_ID}
+  apiKey: ${KEDIFY_API_KEY}
 clusterName: ahoj
 keda:
   enabled: true
-  extraArgs:
-    keda:
-      kube-api-qps: 30
-      kube-api-burst: 40
 keda-add-ons-http:
   enabled: true
   interceptor:
