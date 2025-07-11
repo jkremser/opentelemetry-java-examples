@@ -47,13 +47,17 @@ public class Application {
 
             while (true) {
                 try {
-                    System.out.println("\n- Making " + (longPolling ? "(long-polling) " : "") + "HTTP call..");
+                    System.out.println("\n> Making " + (longPolling ? "(long-polling) " : "") + "HTTP call..");
                     if (longPolling) {
-                        pinger.longpolling(deadlineFinal).thenAccept(res -> System.out.println("  result: " + res));
+                        // this is an async call that registers the listener for the completable future
+                        pinger.longpolling(deadlineFinal).thenAccept(res -> System.out.println("< result: " + res));
                     } else {
-                        System.out.println("  result: " + pinger.ping());
+                        // this call blocks and wait for the result
+                        System.out.println("< result: " + pinger.ping());
                     }
-                    Thread.sleep(sleepMsIntFinal);
+                    if (sleepMsIntFinal > 0) {
+                        Thread.sleep(sleepMsIntFinal);
+                    }
                 } catch (Exception e) {
                     System.out.println(e.getMessage());
                 }
