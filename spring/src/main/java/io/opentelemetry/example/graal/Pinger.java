@@ -1,6 +1,8 @@
 package io.opentelemetry.example.graal;
 
 import io.netty.channel.ChannelOption;
+import io.netty.channel.socket.nio.NioChannelOption;
+import jdk.net.ExtendedSocketOptions;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
@@ -23,15 +25,18 @@ public class Pinger {
         ConnectionProvider provider =
                 ConnectionProvider.builder("non-default")
                         .maxConnections(3000)
-                        .maxIdleTime(Duration.ofSeconds(600))
-                        .maxLifeTime(Duration.ofSeconds(700))
-                        .disposeTimeout(Duration.ofSeconds(600))
+                        .maxIdleTime(Duration.ofSeconds(400))
+                        .maxLifeTime(Duration.ofSeconds(400))
+                        .disposeTimeout(Duration.ofSeconds(400))
                         .maxConnectionPools(1)
                         .metrics(true)
                         .build();
         HttpClient httpClient = HttpClient.create(provider)
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 600000)
-                .option(ChannelOption.SO_KEEPALIVE, true);
+                .responseTimeout(Duration.ofSeconds(400))
+//                .option(NioChannelOption.of(ExtendedSocketOptions.TCP_KEEPIDLE), 300)
+//                .option(NioChannelOption.of(ExtendedSocketOptions.TCP_KEEPINTERVAL), 60)
+//                .option(NioChannelOption.of(ExtendedSocketOptions.TCP_KEEPCOUNT), 8)
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 40000);
         this.webClient = webClientBuilder.baseUrl(server)
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .build();

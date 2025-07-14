@@ -13,7 +13,7 @@ agent:
   kedifyServer: kedify-proxy.api.dev.kedify.io:443
   orgId: ${KEDIFY_ORG_ID}
   apiKey: ${KEDIFY_API_KEY}
-clusterName: ahoj
+clusterName: spring
 keda:
   enabled: true
 keda-add-ons-http:
@@ -35,24 +35,29 @@ VALUES
 
 # server app
 ```bash
-kubectl create deploy otel-tracing-server --image=docker.io/jkremser/otel-tracing-server --port=8080
-kubectl expose deploy otel-tracing-server --name=otel-tracing-server-fallback --type=ClusterIP --port=8080 --target-port=8080
-kubectl get svc otel-tracing-server-fallback -oyaml | yq 'del(.spec.clusterIPs, .spec.clusterIP, .spec.selector, .spec.internalTrafficPolicy, .spec.ipFamilies, .spec.ipFamilyPolicy, .status, .metadata)' | yq '.metadata.name="otel-tracing-server"' | kubectl apply -f -
-kubectl set env deploy/otel-tracing-server OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://jaeger-all-in-one.default.svc:4317"
+kubectl create deploy spring-server --image=docker.io/jkremser/springboot:tracing --port=8080
+kubectl expose deploy spring-server --name=otel-spring-server-fallback --type=ClusterIP --port=8080 --target-port=8080
+kubectl expose deploy spring-server --name=otel-spring-server --type=ClusterIP --port=8080 --target-port=8080 --dry-run=client -oyaml | yq 'del(.spec.selector)' | kubectl apply -f -
+
+kubectl set env deploy/spring-server \
+   OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://jaeger-all-in-one.default.svc:4317" \
+   SERVER="" \
+   SERVICE_NAME=server
 ```
 
 # client app
 ```bash
-kubectl create deploy otel-tracing-client --image=docker.io/jkremser/otel-tracing-client
-kubectl set env deploy/otel-tracing-client \
-  SERVER="otel-tracing-server:8080" \
-  SLEEP_MS="1500" \
-  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://jaeger-all-in-one:4317"
+kubectl create deploy spring-client --image=docker.io/jkremser/springboot:tracing
+kubectl set env deploy/spring-client \
+  SERVER="spring-server:8080" \
+  SLEEP_MS="300000" \
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://jaeger-all-in-one.default.svc:4317" \
+  SERVICE_NAME=client
 ```
 
 # workaround
 ```bash
-kubectl set env deploy/otel-tracing-client SERVER="kedify-proxy:8080"
+kubectl set env deploy/spring-client SERVER="kedify-proxy:8080"
 ```
 
 # ScaledObject
@@ -61,12 +66,12 @@ cat <<SO | kubectl apply -f -
 kind: ScaledObject
 apiVersion: keda.sh/v1alpha1
 metadata:
-  name: otel-tracing-server
+  name: spring-server
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: otel-tracing-server
+    name: spring-server
   cooldownPeriod: 5
   minReplicaCount: 1
   maxReplicaCount: 2
@@ -83,15 +88,15 @@ spec:
   triggers:
     - type: kedify-http
       metadata:
-        hosts: otel-tracing-server
-        service: otel-tracing-server
+        hosts: spring-server
+        service: spring-server
         port: '8080'
         scalingMetric: requestRate
         targetValue: '1'
         granularity: 1s
         window: 10s
         trafficAutowire: service
-        fallbackService: otel-tracing-server-fallback
+        fallbackService: spring-server-fallback
 SO
 ```
 

@@ -2,9 +2,11 @@ package io.opentelemetry.example.graal;
 
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.contrib.sampler.RuleBasedRoutingSampler;
+import io.opentelemetry.exporter.logging.SystemOutLogRecordExporter;
 import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter;
 import io.opentelemetry.sdk.autoconfigure.spi.AutoConfigurationCustomizerProvider;
 import io.opentelemetry.sdk.autoconfigure.spi.ConfigProperties;
+import io.opentelemetry.sdk.logs.export.LogRecordExporter;
 import io.opentelemetry.sdk.trace.export.SpanExporter;
 import io.opentelemetry.sdk.trace.samplers.Sampler;
 import io.opentelemetry.semconv.UrlAttributes;
@@ -20,9 +22,15 @@ public class OpenTelemetryConfig {
 
     @Bean
     public AutoConfigurationCustomizerProvider otelCustomizer() {
-        return p ->
-                p.addSamplerCustomizer(this::configureSampler)
-                        .addSpanExporterCustomizer(this::configureSpanExporter);
+        return p -> {
+            p.addLogRecordExporterCustomizer(this::configureLogExporter);
+            p.addSamplerCustomizer(this::configureSampler)
+                    .addSpanExporterCustomizer(this::configureSpanExporter);
+        };
+    }
+
+    private LogRecordExporter configureLogExporter(LogRecordExporter logRecordExporter, ConfigProperties configProperties) {
+        return SystemOutLogRecordExporter.create();
     }
 
     /**

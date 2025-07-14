@@ -17,7 +17,7 @@ public class Application {
 
     public static void main(String[] args) throws IOException {
         System.out.println("version=" + VERSION);
-        Optional<String> maybeServer = Optional.of(System.getenv("SERVER"));
+        Optional<String> maybeServer = Optional.ofNullable(System.getenv("SERVER"));
         boolean longPolling = Optional.of("true".equals(System.getenv("LONG_POLLING"))).orElse(false);
         String sleepMs = Optional.ofNullable(System.getenv("SLEEP_MS")).orElseThrow(() -> new IOException("SLEEP_MS is not set in the environment"));
         System.out.println("SERVER=" + maybeServer);
@@ -41,13 +41,21 @@ public class Application {
         final int sleepMsIntFinal = sleepMsInt;
         final int deadlineFinal = deadline;
         ApplicationContext applicationContext = SpringApplication.run(Application.class, args);
-        maybeServer.map(server -> {
+        System.out.println("\nListening for requests on localhost:8080");
+        System.out.println(" -   /ping");
+        System.out.println(" -   /longpolling/{deadline}");
+        maybeServer.ifPresent(server -> {
+            if (server.trim().isEmpty()) {
+                return;
+            }
             Pinger pinger = applicationContext.getBean(Pinger.class);
             System.out.println("Running the pinger, it will be sending requests to " + server);
+            // required in order to be able to set the Host HTTP header
+            System.setProperty("sun.net.http.allowRestrictedHeaders", "true");
 
             while (true) {
+                System.out.println("\n> Making " + (longPolling ? "(long-polling) " : "") + "HTTP call..");
                 try {
-                    System.out.println("\n> Making " + (longPolling ? "(long-polling) " : "") + "HTTP call..");
                     if (longPolling) {
                         // this is an async call that registers the listener for the completable future
                         pinger.longpolling(deadlineFinal).thenAccept(res -> System.out.println("< result: " + res));
@@ -55,11 +63,16 @@ public class Application {
                         // this call blocks and wait for the result
                         System.out.println("< result: " + pinger.ping());
                     }
-                    if (sleepMsIntFinal > 0) {
-                        Thread.sleep(sleepMsIntFinal);
-                    }
                 } catch (Exception e) {
-                    System.out.println(e.getMessage());
+                    e.printStackTrace();
+                } finally {
+                    try {
+                        if (sleepMsIntFinal > 0) {
+                            Thread.sleep(sleepMsIntFinal);
+                        }
+                    } catch (InterruptedException e) {
+                        System.out.println(e.getMessage());
+                    }
                 }
             }
         });

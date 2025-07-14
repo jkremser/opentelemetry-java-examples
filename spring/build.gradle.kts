@@ -21,7 +21,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter")
     implementation("io.netty:netty-codec-http2")
+    implementation("io.netty:netty-transport-classes-epoll")
 
     // for otelCustomizer in Application.java
     implementation("io.opentelemetry.contrib:opentelemetry-samplers:1.46.0-alpha")
+    implementation("io.opentelemetry:opentelemetry-sdk-logs")
 }
