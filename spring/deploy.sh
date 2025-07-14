@@ -55,8 +55,11 @@ kubectl set env deploy/spring-server \
 kubectl create deploy spring-client --image=docker.io/jkremser/springboot:tracing
 kubectl set env deploy/spring-client \
   SERVER="http://otel-spring-server:8080" \
-  SLEEP_MS="300000" \
+  SLEEP_MS="1000" \
   OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://jaeger-all-in-one.default.svc:4317" \
+  HOST_HEADER=otel-spring-server \
+  LONG_POLLING=true \
+  DEADLINE=100 \
   SERVICE_NAME=client
 
 # workaround

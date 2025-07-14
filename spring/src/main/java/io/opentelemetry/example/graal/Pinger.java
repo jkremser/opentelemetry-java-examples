@@ -3,6 +3,7 @@ package io.opentelemetry.example.graal;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.socket.nio.NioChannelOption;
 import jdk.net.ExtendedSocketOptions;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
@@ -18,10 +19,15 @@ import java.util.concurrent.CompletableFuture;
 @Service
 public class Pinger {
     private final WebClient webClient;
+    private final Optional<String> maybeHostHeader;
 
     public Pinger(WebClient.Builder webClientBuilder) throws IOException {
         String server = Optional.ofNullable(System.getenv("SERVER")).orElseThrow(() -> new IOException("SERVER is not set in the environment"));
         System.out.println("SERVER=" + server);
+
+        this.maybeHostHeader = Optional.ofNullable(System.getenv("HOST_HEADER")).filter(s -> !s.isEmpty());
+        System.out.println("SERVER=" + server);
+
         ConnectionProvider provider =
                 ConnectionProvider.builder("non-default")
                         .maxConnections(3000)
@@ -43,7 +49,13 @@ public class Pinger {
     }
 
     public String ping() {
-        WebClient.ResponseSpec res = this.webClient.get().uri("/ping").retrieve();
+        WebClient.RequestHeadersSpec<?> call = this.webClient.get()
+                .uri("/ping");
+        maybeHostHeader.ifPresent(hostHeader -> {
+            System.out.println("  HOST header explicitly set to: " + hostHeader);
+            call.header(HttpHeaders.HOST, hostHeader);
+        });
+        WebClient.ResponseSpec res = call.retrieve();
         ResponseEntity<String> entity = res.toEntity(String.class).block();
         if (entity != null) {
             System.out.println("  HTTP status code: " + entity.getStatusCode());
@@ -54,9 +66,14 @@ public class Pinger {
     }
 
     public CompletableFuture<String> longpolling(int deadline) {
-        return this.webClient.get()
-                .uri("/longpolling/{deadline}", deadline)
-                .exchangeToMono(clientResponse -> {
+        WebClient.RequestHeadersSpec<?> call = this.webClient.get()
+                .uri("/longpolling/{deadline}", deadline);
+        maybeHostHeader.ifPresent(hostHeader -> {
+            System.out.println("  HOST header explicitly set to: " + hostHeader);
+            call.header(HttpHeaders.HOST, hostHeader);
+        });
+
+        return call.exchangeToMono(clientResponse -> {
                     System.out.println("  HTTP status code: " + clientResponse.statusCode());
                     System.out.println("  headers: " + clientResponse.headers().asHttpHeaders());
                     return clientResponse.bodyToMono(String.class);
