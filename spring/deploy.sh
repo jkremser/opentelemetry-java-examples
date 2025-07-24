@@ -21,7 +21,7 @@ agent:
   kedifyServer: kedify-proxy.api.dev.kedify.io:443
   orgId: ${KEDIFY_ORG_ID}
   apiKey: ${KEDIFY_API_KEY}
-clusterName: spring2
+clusterName: spring3
 keda:
   enabled: true
 keda-add-ons-http:

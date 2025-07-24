@@ -1,6 +1,8 @@
 package io.opentelemetry.example.graal;
 
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.actuate.autoconfigure.metrics.export.otlp.OtlpMetricsExportAutoConfiguration;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.ComponentScan;
@@ -12,6 +14,9 @@ import java.io.IOException;
 import java.util.Optional;
 
 @SpringBootApplication
+@EnableAutoConfiguration(exclude = {
+        OtlpMetricsExportAutoConfiguration.class
+})
 public class Application {
     public static final int VERSION = 1;
 

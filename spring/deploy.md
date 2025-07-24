@@ -39,6 +39,43 @@ kubectl create deploy spring-server --image=docker.io/jkremser/springboot:tracin
 kubectl expose deploy spring-server --name=otel-spring-server-fallback --type=ClusterIP --port=8080 --target-port=8080
 kubectl expose deploy spring-server --name=otel-spring-server --type=ClusterIP --port=8080 --target-port=8080 --dry-run=client -oyaml | yq 'del(.spec.selector)' | kubectl apply -f -
 
+kubectl patch deploy spring-server --type='json' -p='[
+    {
+      "op": "add",
+      "path": "/spec/template/spec/containers/0/livenessProbe",
+      "value": {
+        "httpGet": {
+          "path": "/actuator/health/liveness",
+          "port": 8080,
+          "scheme": HTTP
+        },
+        "failureThreshold": 3,
+        "initialDelaySeconds": 80,
+        "periodSeconds": 25,
+        "successThreshold": 1,
+        "timeoutSeconds": 10
+      }
+    }
+  ]'
+kubectl patch deploy spring-server --type='json' -p='[
+    {
+      "op": "add",
+      "path": "/spec/template/spec/containers/0/readinessProbe",
+      "value": {
+        "httpGet": {
+          "path": "/actuator/health/readiness",
+          "port": 8080,
+          "scheme": HTTP
+        },
+        "failureThreshold": 3,
+        "initialDelaySeconds": 80,
+        "periodSeconds": 25,
+        "successThreshold": 1,
+        "timeoutSeconds": 10
+      }
+    }
+  ]'
+
 kubectl set env deploy/spring-server \
    OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://jaeger-all-in-one.default.svc:4317" \
    SERVER="" \

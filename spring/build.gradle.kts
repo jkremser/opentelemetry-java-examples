@@ -26,4 +26,8 @@ dependencies {
     // for otelCustomizer in Application.java
     implementation("io.opentelemetry.contrib:opentelemetry-samplers:1.46.0-alpha")
     implementation("io.opentelemetry:opentelemetry-sdk-logs")
+
+    // for metrics
+    implementation("io.micrometer:micrometer-registry-prometheus")
+    implementation("io.micrometer:micrometer-registry-otlp")
 }
